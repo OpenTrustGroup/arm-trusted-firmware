@@ -53,7 +53,7 @@
 	 */
 	.macro vector_base  label, section_name=.vectors
 	.section \section_name, "ax"
-	.align 11, 0
+	.align 11
 	\label:
 	.endm
 
@@ -67,7 +67,7 @@
 	.macro vector_entry  label, section_name=.vectors
 	.cfi_sections .debug_frame
 	.section \section_name, "ax"
-	.align 7, 0
+	.align 7
 	.type \label, %function
 	.func \label
 	.cfi_startproc
