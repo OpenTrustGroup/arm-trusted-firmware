@@ -201,6 +201,8 @@
 #define GICC_BASE			0x8010000
 #define GICR_BASE			0
 
+#define PLAT_ARM_GICD_BASE		GICD_BASE
+#define PLAT_ARM_GICC_BASE		GICC_BASE
 
 #define QEMU_IRQ_SEC_SGI_0		8
 #define QEMU_IRQ_SEC_SGI_1		9
