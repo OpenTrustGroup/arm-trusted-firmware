@@ -233,7 +233,7 @@ static int qemu_bl2_handle_post_image_load(unsigned int image_id)
 	bl_mem_params_node_t *paged_mem_params = NULL;
 #endif
 #ifdef SPD_trusty
-	bl_mem_params_node_t *bootdata_mem_params = NULL;
+	bl_mem_params_node_t *bootdata_mem_params __maybe_unused = NULL;
 #endif
 
 	assert(bl_mem_params);
@@ -261,14 +261,12 @@ static int qemu_bl2_handle_post_image_load(unsigned int image_id)
 		 */
 		bl_mem_params->ep_info.args.arg3 = PLAT_QEMU_DT_BASE;
 #endif
-#ifdef SPD_trusty
+#if defined(SPD_trusty) && defined(NEED_BL32_EXTRA1)
 		bootdata_mem_params = get_bl_mem_params_node(BL32_EXTRA1_IMAGE_ID);
 		if(bootdata_mem_params) {
 			image_info_t *image_info = &bootdata_mem_params->image_info;
 
 			image_info->h.attr &= ~IMAGE_ATTRIB_SKIP_LOADING;
-
-			/* Load bootdata 2MB above BL32 image base */
 			image_info->image_base = QEMU_ZIRCON_BOOTDATA_BASE;
 		}
 #endif

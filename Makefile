@@ -605,6 +605,16 @@ ifeq (${NEED_BL32},yes)
 $(if ${BL32}, $(eval $(call MAKE_TOOL_ARGS,32,${BL32},tos-fw)),\
 	$(if ${BL32_SOURCES}, $(eval $(call MAKE_BL,32,tos-fw)),\
 		$(eval $(call FIP_ADD_IMG,BL32,--tos-fw))))
+
+# SPD can determine if need to load BL32 extra1 or extra2 image by
+# NEED_BL32_EXTRA1 and NEED_BL32_EXTRA2 definitions
+ifneq ($(BL32_EXTRA1),)
+$(eval $(call add_define,NEED_BL32_EXTRA1))
+endif
+ifneq ($(BL32_EXTRA2),)
+$(eval $(call add_define,NEED_BL32_EXTRA2))
+endif
+
 endif
 
 # Add the BL33 image if required by the platform
