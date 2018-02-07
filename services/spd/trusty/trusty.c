@@ -385,15 +385,14 @@ static const spd_pm_ops_t trusty_pm = {
 	.svc_suspend_finish = trusty_cpu_suspend_finish_handler,
 };
 
-void plat_trusty_set_boot_args(aapcs64_params_t *args);
-
 #ifndef TSP_SEC_MEM_SIZE
 #define TSP_SEC_MEM_SIZE (BL32_LIMIT - BL32_BASE)
 #endif
 
-void plat_trusty_set_boot_args(aapcs64_params_t *args)
+static void plat_trusty_set_boot_args(aapcs64_params_t *args,
+		u_register_t boot_arg)
 {
-	args->arg0 = TSP_SEC_MEM_SIZE;
+	args->arg0 = boot_arg;
 }
 
 static int32_t trusty_setup(void)
@@ -403,6 +402,7 @@ static int32_t trusty_setup(void)
 	uint32_t flags;
 	int ret;
 	int aarch32 = 0;
+	int is_zircon = 0;
 
 	/* Get trusty's entry point info */
 	ep_info = bl31_plat_get_next_image_ep_info(SECURE);
@@ -418,6 +418,9 @@ static int32_t trusty_setup(void)
 		aarch32 = 1;
 	} else if (instr >> 8 == 0xd53810 || instr >> 16 == 0x9400) {
 		INFO("trusty: Found 64 bit image\n");
+	} else if (instr >> 16 == 0x9100) {
+		INFO("trusty: Found Zircon 64 bit image\n");
+		is_zircon = 1;
 	} else {
 		NOTICE("trusty: Found unknown image, 0x%x\n", instr);
 	}
@@ -433,7 +436,11 @@ static int32_t trusty_setup(void)
 					    DAIF_IRQ_BIT |
 					    DAIF_ABT_BIT);
 	memset(&ep_info->args, 0, sizeof(ep_info->args));
-	plat_trusty_set_boot_args(&ep_info->args);
+
+	if (is_zircon)
+		plat_trusty_set_boot_args(&ep_info->args, QEMU_ZIRCON_BOOTDATA_BASE);
+	else
+		plat_trusty_set_boot_args(&ep_info->args, TSP_SEC_MEM_SIZE);
 
 	/* register init handler */
 	bl31_register_bl32_init(trusty_init);
