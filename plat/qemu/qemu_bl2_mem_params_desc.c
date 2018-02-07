@@ -73,6 +73,7 @@ static bl_mem_params_node_t bl2_mem_params_descs[] = {
 	  .next_handoff_image_id = BL33_IMAGE_ID,
 	},
 
+#ifdef QEMU_LOAD_BL32_EXTRA1
 	/*
 	 * Fill BL32 external 1 related information.
 	 * A typical use for extra1 image is with OP-TEE where it is the
@@ -90,7 +91,9 @@ static bl_mem_params_node_t bl2_mem_params_descs[] = {
 
 	   .next_handoff_image_id = INVALID_IMAGE_ID,
 	},
+#endif /* QEMU_LOAD_BL32_EXTRA1 */
 
+#ifdef QEMU_LOAD_BL32_EXTRA2
 	/*
 	 * Fill BL32 external 2 related information.
 	 * A typical use for extra2 image is with OP-TEE where it is the
@@ -109,6 +112,8 @@ static bl_mem_params_node_t bl2_mem_params_descs[] = {
 #endif
 	   .next_handoff_image_id = INVALID_IMAGE_ID,
 	},
+#endif /* QEMU_LOAD_BL32_EXTRA2 */
+
 # endif /* QEMU_LOAD_BL32 */
 
 	/* Fill BL33 related information */

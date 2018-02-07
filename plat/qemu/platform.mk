@@ -134,9 +134,11 @@ BL31_SOURCES		+=	lib/cpus/aarch64/aem_generic.S		\
 # in the FIP if the platform requires.
 ifneq ($(BL32_EXTRA1),)
 $(eval $(call FIP_ADD_IMG,BL32_EXTRA1,--tos-fw-extra1))
+$(eval $(call add_define,QEMU_LOAD_BL32_EXTRA1))
 endif
 ifneq ($(BL32_EXTRA2),)
 $(eval $(call FIP_ADD_IMG,BL32_EXTRA2,--tos-fw-extra2))
+$(eval $(call add_define,QEMU_LOAD_BL32_EXTRA2))
 endif
 
 # Disable the PSCI platform compatibility layer
