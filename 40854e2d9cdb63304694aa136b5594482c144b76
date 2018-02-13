@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6fa18397_ef5de9ff",
+        "filename": "Makefile",
+        "patchSetId": 2
+      },
+      "lineNbr": 609,
+      "author": {
+        "id": 1013117
+      },
+      "writtenOn": "2018-02-13T01:51:57Z",
+      "side": 1,
+      "message": "BL32 extra1 or extra2 image",
+      "range": {
+        "startLine": 609,
+        "startChar": 36,
+        "endLine": 609,
+        "endChar": 69
+      },
+      "revId": "40854e2d9cdb63304694aa136b5594482c144b76",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4b1ae467_c1519cc5",
+        "filename": "plat/qemu/qemu_bl2_setup.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 236,
+      "author": {
+        "id": 1013117
+      },
+      "writtenOn": "2018-02-13T01:51:57Z",
+      "side": 1,
+      "message": "don\u0027t know if maybe_ununsed is provided by ATF\nIf yes, it is better to use this",
+      "range": {
+        "startLine": 236,
+        "startChar": 58,
+        "endLine": 236,
+        "endChar": 64
+      },
+      "revId": "40854e2d9cdb63304694aa136b5594482c144b76",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    }
+  ]
+}
