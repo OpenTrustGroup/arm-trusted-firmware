@@ -418,7 +418,7 @@ static int32_t trusty_setup(void)
 		aarch32 = 1;
 	} else if (instr >> 8 == 0xd53810 || instr >> 16 == 0x9400) {
 		INFO("trusty: Found 64 bit image\n");
-	} else if (instr >> 16 == 0x9100) {
+	} else if (instr >> 16 == 0xd538) {
 		INFO("trusty: Found Zircon 64 bit image\n");
 		is_zircon = 1;
 	} else {
