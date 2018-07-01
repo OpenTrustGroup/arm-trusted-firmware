@@ -77,8 +77,8 @@
 #define QEMU_OPTEE_PAGEABLE_LOAD_BASE	(SEC_DRAM_BASE + 0x00200000)
 #define QEMU_OPTEE_PAGEABLE_LOAD_SIZE	0x00400000
 
-/* Load bootdata part of zircon 4MB under top of BL32 memory region */
-#define QEMU_ZIRCON_BOOTDATA_BASE	(BL32_LIMIT - 0x00400000)
+/* Load bootdata part of zircon 5MB under top of BL32 memory region */
+#define QEMU_ZIRCON_BOOTDATA_BASE	(BL32_LIMIT - 0x00500000)
 
 /*
  * ARM-TF lives in SRAM, partition it here
