@@ -40,6 +40,7 @@
  */
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
+static entry_point_info_t bl33_extra1_image_ep_info;
 
 /*******************************************************************************
  * Perform any BL3-1 early platform setup.  Here is an opportunity to copy
@@ -135,8 +136,18 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 	entry_point_info_t *next_image_info;
 
 	assert(sec_state_is_valid(type));
+#ifdef SPD_nebula
+	if (type == NON_SECURE) {
+		next_image_info = (GET_EL(bl33_image_ep_info.spsr) == MODE_EL2)
+			? &bl33_image_ep_info : &bl33_extra1_image_ep_info;
+	} else {
+		next_image_info = &bl32_image_ep_info;
+	}
+#else
 	next_image_info = (type == NON_SECURE)
 			? &bl33_image_ep_info : &bl32_image_ep_info;
+#endif
+
 	/*
 	 * None of the images on the ARM development platforms can have 0x0
 	 * as the entrypoint
