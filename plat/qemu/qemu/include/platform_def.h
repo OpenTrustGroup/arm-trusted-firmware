@@ -141,7 +141,7 @@
  * Put BL2 just below BL3-1. BL2_BASE is calculated using the current BL2 debug
  * size plus a little space for growth.
  */
-#define BL2_BASE			(BL31_BASE - 0x35000)
+#define BL2_BASE			(BL31_BASE - 0x1D000)
 #define BL2_LIMIT			BL31_BASE
 
 /*
@@ -150,7 +150,7 @@
  * Put BL3-1 at the top of the Trusted SRAM. BL31_BASE is calculated using the
  * current BL3-1 debug size plus a little space for growth.
  */
-#define BL31_BASE			(BL31_LIMIT - 0x60000)
+#define BL31_BASE			(BL31_LIMIT - 0xE0000)
 #define BL31_LIMIT			(BL_RAM_BASE + BL_RAM_SIZE - FW_HANDOFF_SIZE)
 #define BL31_PROGBITS_LIMIT		BL1_RW_BASE
 
@@ -182,10 +182,17 @@
 # define BL32_BASE			BL32_SRAM_BASE
 # define BL32_LIMIT			(BL32_SRAM_LIMIT - FW_HANDOFF_SIZE)
 #elif BL32_RAM_LOCATION_ID == SEC_DRAM_ID
+#ifdef SPD_nebula
+# define BL32_MEM_BASE			0xe0000000
+# define BL32_MEM_SIZE			0x1c000000
+# define BL32_BASE			0xe0010000
+# define BL32_LIMIT			0x1c000000
+#else
 # define BL32_MEM_BASE			SEC_DRAM_BASE
 # define BL32_MEM_SIZE			SEC_DRAM_SIZE
 # define BL32_BASE			BL32_DRAM_BASE
 # define BL32_LIMIT			(BL32_DRAM_LIMIT - FW_HANDOFF_SIZE)
+#endif
 #else
 # error "Unsupported BL32_RAM_LOCATION_ID value"
 #endif
@@ -194,8 +201,13 @@
 #define FW_NS_HANDOFF_BASE		(NS_IMAGE_OFFSET - FW_HANDOFF_SIZE)
 #endif
 
+#ifdef SPD_nebula
+#define NS_IMAGE_OFFSET			0x40010000
+#define NS_IMAGE_MAX_SIZE		(NS_DRAM0_BASE + NS_DRAM0_SIZE - NS_IMAGE_OFFSET)
+#else
 #define NS_IMAGE_OFFSET			(NS_DRAM0_BASE + 0x20000000)
 #define NS_IMAGE_MAX_SIZE		(NS_DRAM0_SIZE - 0x20000000)
+#endif
 
 #define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 32)
 #define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 32)
@@ -212,7 +224,7 @@
 #define UART0_CLK_IN_HZ			1
 #define UART1_CLK_IN_HZ			1
 
-#define PLAT_QEMU_BOOT_UART_BASE	UART0_BASE
+#define PLAT_QEMU_BOOT_UART_BASE	UART1_BASE
 #define PLAT_QEMU_BOOT_UART_CLK_IN_HZ	UART0_CLK_IN_HZ
 
 #define PLAT_QEMU_CRASH_UART_BASE	UART1_BASE
@@ -290,7 +302,7 @@
  * DT related constants
  */
 #define PLAT_QEMU_DT_BASE		NS_DRAM0_BASE
-#define PLAT_QEMU_DT_MAX_SIZE		0x100000
+#define PLAT_QEMU_DT_MAX_SIZE		0x10000
 
 /*
  * Platforms macros to support SDEI
@@ -338,4 +350,14 @@
 #define MAX_MMAP_REGIONS_SPMC		0
 #define MAX_XLAT_TABLES_SPMC		0
 #endif
+
+#define BL33_EXTRA1_BASE		(0x80000000)
+#define BL33_EXTRA1_OFFSET		(0x00010000)
+#define BL33_EXTRA1_SIZE		(0x40000000)
+#define BL33_EXTRA1_LIMIT		(BL33_EXTRA1_BASE + BL33_EXTRA1_SIZE)
+
+#define BL33_EXTRA2_BASE		(0x88000000)
+#define BL33_EXTRA2_SIZE		(0x08000000)
+#define BL33_EXTRA2_LIMIT		(BL33_EXTRA2_BASE + BL33_EXTRA2_SIZE)
+
 #endif /* PLATFORM_DEF_H */
