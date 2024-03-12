@@ -33,6 +33,8 @@
 #define BL32_EXTRA1_IMAGE_NAME		"bl32_extra1.bin"
 #define BL32_EXTRA2_IMAGE_NAME		"bl32_extra2.bin"
 #define BL33_IMAGE_NAME			"bl33.bin"
+#define BL33_EXTRA1_IMAGE_NAME		"bl33_extra1.bin"
+#define BL33_EXTRA2_IMAGE_NAME		"bl33_extra2.bin"
 
 #if TRUSTED_BOARD_BOOT
 #define TRUSTED_BOOT_FW_CERT_NAME	"tb_fw.crt"
@@ -94,6 +96,13 @@ static const io_uuid_spec_t tos_fw_config_uuid_spec = {
 
 static const io_uuid_spec_t bl33_uuid_spec = {
 	.uuid = UUID_NON_TRUSTED_FIRMWARE_BL33,
+};
+static const io_uuid_spec_t bl33_extra1_uuid_spec = {
+	.uuid = UUID_NON_TRUSTED_FIRMWARE_BL33_EXTRA1,
+};
+
+static const io_uuid_spec_t bl33_extra2_uuid_spec = {
+	.uuid = UUID_NON_TRUSTED_FIRMWARE_BL33_EXTRA2,
 };
 
 #if TRUSTED_BOARD_BOOT
@@ -161,6 +170,14 @@ static const io_file_spec_t sh_file_spec[] = {
 	},
 	[BL33_IMAGE_ID] = {
 		.path = BL33_IMAGE_NAME,
+		.mode = FOPEN_MODE_RB
+	},
+	[BL33_EXTRA1_IMAGE_ID] = {
+		.path = BL33_EXTRA1_IMAGE_NAME,
+		.mode = FOPEN_MODE_RB
+	},
+	[BL33_EXTRA2_IMAGE_ID] = {
+		.path = BL33_EXTRA2_IMAGE_NAME,
 		.mode = FOPEN_MODE_RB
 	},
 #if TRUSTED_BOARD_BOOT
@@ -287,6 +304,16 @@ static const struct plat_io_policy policies[] = {
 	[BL33_IMAGE_ID] = {
 		&fip_dev_handle,
 		(uintptr_t)&bl33_uuid_spec,
+		open_fip
+	},
+	[BL33_EXTRA1_IMAGE_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&bl33_extra1_uuid_spec,
+		open_fip
+	},
+	[BL33_EXTRA2_IMAGE_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&bl33_extra2_uuid_spec,
 		open_fip
 	},
 #if TRUSTED_BOARD_BOOT

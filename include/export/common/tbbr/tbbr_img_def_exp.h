@@ -119,4 +119,10 @@
 /* Max Images */
 #define MAX_IMAGE_IDS			U(39)
 
+/* Non-Secure Image BL33_EXTRA1 (Non-Secure OS Extra1) */
+#define BL33_EXTRA1_IMAGE_ID		U(40)
+
+/* Non-Secure Image BL33_EXTRA1 (Non-Secure OS Extra2) */
+#define BL33_EXTRA2_IMAGE_ID		U(41)
+
 #endif /* ARM_TRUSTED_FIRMWARE_EXPORT_COMMON_TBBR_TBBR_IMG_DEF_EXP_H */
