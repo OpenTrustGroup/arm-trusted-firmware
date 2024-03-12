@@ -54,6 +54,9 @@ static meminfo_t bl2_tzram_layout __aligned(CACHE_WRITEBACK_GRANULE);
 #if TRANSFER_LIST
 static struct transfer_list_header *bl2_tl;
 #endif
+#if __Nebula__
+uint32_t tee_system_mode;
+#endif
 
 void bl2_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 			       u_register_t arg2, u_register_t arg3)
@@ -115,6 +118,305 @@ static void update_dt(void)
 #endif
 }
 
+#ifdef __Nebula__
+/* Get specific prop value by index from specific node. */
+static uint64_t qemu_fdt_get_prop(const char *path, const char *prop, int index)
+{
+	int ret;
+	int len;
+	int offset;
+	/* use 32bit-pointer to solve 64bit pointer misaligned issue */
+	fdt32_t *vp;
+	fdt64_t value;
+	void *fdt = (void *)(uintptr_t)PLAT_QEMU_DT_BASE;
+
+	ret = fdt_open_into(fdt, fdt, PLAT_QEMU_DT_MAX_SIZE);
+	if (ret < 0) {
+		ERROR("Invalid Device Tree at %p: error %d\n", fdt, ret);
+		return 0;
+	}
+
+	offset = fdt_path_offset(fdt, path);
+	if (offset < 0) {
+		ERROR("Failed to find node '%s'\n", path);
+		return 0;
+	}
+	vp = (fdt32_t *)fdt_getprop(fdt, offset, prop, &len);
+	index <<= 1;
+	value = vp[index + 1];
+	value = (value << 32) | vp[index];
+
+	return fdt64_to_cpu(value);
+}
+
+/* Set specific prop values to specific node. */
+static void qemu_fdt_set_prop(void *fdt, const char *path,
+		const char *prop, const uint64_t *value, const int len)
+{
+	int ret;
+	int offset;
+
+	ret = fdt_open_into(fdt, fdt, PLAT_QEMU_DT_MAX_SIZE);
+	if (ret < 0) {
+		ERROR("Invalid Device Tree at %p: error %d\n", fdt, ret);
+		return;
+	}
+
+	offset = fdt_path_offset(fdt, path);
+	if (offset < 0) {
+		ERROR("Failed to find node '%s'\n", path);
+		return;
+	}
+
+	ret = fdt_setprop(fdt, offset, prop, value, len);
+	if (ret < 0) {
+		ERROR("fdt_setprop failed at %p: error %d\n", fdt, ret);
+		return;
+	}
+
+	ret = fdt_pack(fdt);
+	if (ret < 0)
+		ERROR("Failed to pack Device Tree at %p: error %d\n", fdt, ret);
+}
+
+/* Delete specific node from qemu fdt. */
+static void qemu_fdt_del_node(void *fdt, const char *path)
+{
+	int ret;
+	int offset;
+
+	ret = fdt_open_into(fdt, fdt, PLAT_QEMU_DT_MAX_SIZE);
+	if (ret < 0) {
+		ERROR("Invalid Device Tree at %p: error %d\n", fdt, ret);
+		return;
+	}
+
+	offset = fdt_path_offset(fdt, path);
+	if (offset < 0) {
+		ERROR("Failed to find node '%s'\n", path);
+		return;
+	}
+
+	ret = fdt_del_node(fdt, offset);
+	if (ret < 0) {
+		ERROR("Delete '%s': error %d\n", path, ret);
+		return;
+	}
+
+	ret = fdt_pack(fdt);
+	if (ret < 0)
+		ERROR("Failed to pack Device Tree at %p: error %d\n", fdt, ret);
+}
+
+/* Copy qemu fdt to specific location. */
+static void qemu_fdt_copy(void *dst, void *src)
+{
+	int ret;
+
+	ret = fdt_open_into(src, dst, PLAT_QEMU_DT_MAX_SIZE);
+	if (ret < 0) {
+		ERROR("Invalid Device Tree src %p dst %p: error %d\n", src, dst, ret);
+		return;
+	}
+
+	ret = fdt_pack(dst);
+	if (ret < 0)
+		ERROR("Failed to pack Device Tree src %p dst %p: error %d\n", src, dst, ret);
+}
+
+char *
+strrchr (const char *s, int c)
+{
+	char *rtnval = 0;
+
+	do {
+		if (*s == c)
+			rtnval = (char*) s;
+	} while (*s++);
+	return (rtnval);
+}
+
+static void qemu_fdt_add_subnode(void *fdt, const char *name)
+{
+	char dupname[128];
+	int parent = 0;
+	char *basename;
+	int ret;
+
+	INFO("add_subnode: fdt=%p %s\n", fdt, name);
+	ret = fdt_open_into(fdt, fdt, PLAT_QEMU_DT_MAX_SIZE);
+	if (ret < 0) {
+		ERROR("Invalid Device Tree at %p: error %d\n", fdt, ret);
+		return;
+	}
+
+	memcpy(dupname, name, strlen(name)+1);
+	basename = strrchr(dupname, '/');
+
+	basename[0] = '\0';
+	basename++;
+
+	if (dupname[0]) {
+		parent = fdt_path_offset(fdt, dupname);
+		if (parent < 0)
+			return;
+	}
+
+	ret = fdt_add_subnode(fdt, parent, basename);
+	if (ret < 0)
+		ERROR("Failed to add subnode. parent=%d %s\n", parent, name);
+
+	ret = fdt_pack(fdt);
+	if (ret < 0)
+		ERROR("Failed to pack Device Tree at %p: error %d\n", fdt, ret);
+}
+#endif
+
+#ifdef __Nebula__
+void get_tee_system_mode(void)
+{
+	int offset;
+
+	offset = fdt_path_offset((void*)(uintptr_t)PLAT_QEMU_DT_BASE, "/nebula/tee_system_mode@1");
+	tee_system_mode = offset < 0 ? 0 : 1;
+}
+#endif
+
+
+#ifdef __Nebula__
+
+static const char *node[] = {
+	[BL32_IMAGE_ID] = "/reserved-memory/tee-region",
+	[BL33_IMAGE_ID] = "/reserved-memory/hee-region",
+	[BL33_EXTRA1_IMAGE_ID] = "/reserved-memory/ree1-region",
+	[BL33_EXTRA2_IMAGE_ID] = "/reserved-memory/ree2-region",
+};
+
+static int nbl_bl2_handle_pre_image_load(unsigned int image_id)
+{
+	uint64_t base, size, offset;
+	bl_mem_params_node_t *bl_mem_params = get_bl_mem_params_node(image_id);
+
+	switch (image_id) {
+		case BL32_IMAGE_ID:        /* TEE */
+		case BL33_IMAGE_ID:        /* HEE */
+		case BL33_EXTRA1_IMAGE_ID: /* REE */
+		case BL33_EXTRA2_IMAGE_ID: /* REE Rootfs */
+			base = qemu_fdt_get_prop(node[image_id], "reg", 0);
+			size = qemu_fdt_get_prop(node[image_id], "reg", 1);
+			offset = qemu_fdt_get_prop(node[image_id], "offset", 0);
+			INFO("%s base 0x%lx size 0x%lx offset 0x%lx\n", node[image_id], base, size, offset);
+			bl_mem_params->ep_info.pc = base + offset;
+			bl_mem_params->image_info.image_base = base + offset;
+			break;
+	}
+
+	return 0;
+}
+
+/* Remove the not applicable nodes from the ree device tree */
+static void remove_na_node_from_ree(void *fdt)
+{
+	qemu_fdt_del_node(fdt, "/secram"); /* Fix "virtual kernel memory layout" issue */
+	qemu_fdt_del_node(fdt, "/okl-hyp/hee-interrupt-line");
+	qemu_fdt_del_node(fdt, "/okl-hyp/hee-interrupt-line");
+	qemu_fdt_del_node(fdt, "/okl-hyp/hee_fifo_vipc_irq");
+	qemu_fdt_del_node(fdt, "/hee-link-shbuf");
+	qemu_fdt_del_node(fdt, "/reserved-memory/hee-link-shbuf");
+	qemu_fdt_del_node(fdt, "/hee-link-shbuf-2");
+	qemu_fdt_del_node(fdt, "/reserved-memory/hee-link-shbuf-2");
+	qemu_fdt_del_node(fdt, "/okl-hyp/hee-virq");
+	qemu_fdt_del_node(fdt, "/okl-hyp/hee-pipe0");
+	qemu_fdt_del_node(fdt, "/okl-hyp/hee-serial");
+	qemu_fdt_del_node(fdt, node[BL32_IMAGE_ID]);
+	qemu_fdt_del_node(fdt, node[BL33_IMAGE_ID]);
+	qemu_fdt_del_node(fdt, node[BL33_EXTRA1_IMAGE_ID]);
+	qemu_fdt_del_node(fdt, node[BL33_EXTRA2_IMAGE_ID]);
+}
+
+/* Remove the not applicable nodes from the hee device tree */
+static void remove_na_node_from_hee(void *fdt)
+{
+	qemu_fdt_del_node(fdt, "/okl-hyp/ree-interrupt-line");
+	qemu_fdt_del_node(fdt, "/okl-hyp/ree-link-shbuf");
+	qemu_fdt_del_node(fdt, "/okl-hyp/ree-interrupt-line");
+	qemu_fdt_del_node(fdt, "/okl-hyp/ree_fifo_vipc_irq");
+	qemu_fdt_del_node(fdt, "/ree-link-shbuf");
+	qemu_fdt_del_node(fdt, "/reserved-memory/ree-link-shbuf");
+	qemu_fdt_del_node(fdt, "/ree-link-shbuf-2");
+	qemu_fdt_del_node(fdt, "/reserved-memory/ree-link-shbuf-2");
+	qemu_fdt_del_node(fdt, "/okl-hyp/ree-virq");
+	qemu_fdt_del_node(fdt, "/okl-hyp/ree-pipe0");
+	qemu_fdt_del_node(fdt, "/okl-hyp/ree-serial");
+	qemu_fdt_del_node(fdt, "/pl011@9001000"); /* remove ree uart */
+	qemu_fdt_del_node(fdt, "/pl011@9040000"); /* remove tee uart */
+}
+
+/* Remove the not applicable nodes from the tee device tree */
+static void remove_na_node_from_tee(void *fdt)
+{
+	qemu_fdt_del_node(fdt, "/okl-hyp");
+	qemu_fdt_del_node(fdt, "/emu-pipes");
+	qemu_fdt_del_node(fdt, "/ree-link-shbuf");
+	qemu_fdt_del_node(fdt, "/ree-link-shbuf-2");
+	qemu_fdt_del_node(fdt, "/hee-link-shbuf");
+	qemu_fdt_del_node(fdt, "/hee-link-shbuf-2");
+	qemu_fdt_del_node(fdt, "/pl011@9000000"); /* remove hee uart */
+	qemu_fdt_del_node(fdt, "/pl011@9001000"); /* remove ree uart */
+}
+
+static int nbl_bl2_handle_post_image_load(unsigned int image_id)
+{
+	fdt64_t value[2];
+	uint64_t base, size, offset, initrd_start, initrd_end;
+	bl_mem_params_node_t *bl_mem_params = get_bl_mem_params_node(image_id);
+
+	switch (image_id) {
+		case BL32_IMAGE_ID:        /* TEE */
+		case BL33_IMAGE_ID:        /* HEE */
+		case BL33_EXTRA1_IMAGE_ID: /* REE */
+			base = qemu_fdt_get_prop(node[image_id], "reg", 0);
+			size = qemu_fdt_get_prop(node[image_id], "reg", 1);
+			value[0] = cpu_to_fdt64(base);
+			value[1] = cpu_to_fdt64(size);
+			qemu_fdt_copy((void*)(uintptr_t)base, (void*)(uintptr_t)PLAT_QEMU_DT_BASE);
+			qemu_fdt_set_prop((void*)(uintptr_t)base, "/memory", "reg", value, sizeof(value));
+			if (image_id == BL32_IMAGE_ID) {
+				qemu_fdt_add_subnode((void*)(uintptr_t)base, "/nebula");
+				qemu_fdt_add_subnode((void*)(uintptr_t)base, "/nebula/tee");
+			}
+			/* Assign device tree to x0 */
+			INFO("base: 0x%lx\n", base);
+			bl_mem_params->ep_info.args.arg0 = base;
+			break;
+		case BL33_EXTRA2_IMAGE_ID: /* REE Rootfs */
+			base = qemu_fdt_get_prop(node[image_id], "reg", 0);
+			offset = qemu_fdt_get_prop(node[image_id], "offset", 0);
+			initrd_start = cpu_to_fdt64(base + offset);
+			initrd_end = cpu_to_fdt64(base + offset + bl_mem_params->image_info.image_size);
+			qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-start", &initrd_start, sizeof(initrd_start));
+			qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-end", &initrd_end, sizeof(initrd_end));
+			/* Remove all regions in ree device tree to avoid linux kernel complains. */
+			remove_na_node_from_ree((void*)(uintptr_t)base);
+			/* Remove unnecessary stuffs in hee device tree. */
+			remove_na_node_from_hee((void*)(uintptr_t)qemu_fdt_get_prop(node[BL33_IMAGE_ID], "reg", 0));
+			/* Remove unnecessary stuffs in tee device tree. */
+			remove_na_node_from_tee((void*)(uintptr_t)qemu_fdt_get_prop(node[BL32_IMAGE_ID], "reg", 0));
+			break;
+	}
+
+	return 0;
+}
+#endif /* __Nebula__ */
+
+int bl2_plat_handle_pre_image_load(unsigned int image_id)
+{
+#ifdef __Nebula__
+	nbl_bl2_handle_pre_image_load(image_id);
+#endif
+	return 0;
+}
+
 void bl2_platform_setup(void)
 {
 #if TRANSFER_LIST
@@ -127,6 +429,10 @@ void bl2_platform_setup(void)
 #endif
 	security_setup();
 	update_dt();
+
+#ifdef __Nebula__
+	get_tee_system_mode();
+#endif
 
 	/* TODO Initialize timer */
 }
@@ -192,6 +498,10 @@ static uint32_t qemu_get_spsr_for_bl33_entry(void)
 	 * the FIP ToC and allowing the platform to have a say as
 	 * well.
 	 */
+#ifdef SPD_nebula
+	if (tee_system_mode == 1)
+		mode = MODE_EL1;
+#endif
 	spsr = SPSR_64(mode, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS);
 #else
 	spsr = SPSR_MODE32(MODE32_svc,
@@ -366,7 +676,12 @@ static int qemu_bl2_handle_post_image_load(unsigned int image_id)
 		}
 #else
 		/* BL33 expects to receive the primary CPU MPID (through r0) */
+#ifdef SPD_nebula
+		/* The arg0 is stored device tree address, do not overwrite arg0 */
+#else
+		/* BL33 expects to receive the primary CPU MPID (through r0) */
 		bl_mem_params->ep_info.args.arg0 = 0xffff & read_mpidr();
+#endif
 #endif // ARM_LINUX_KERNEL_AS_BL33
 
 		break;
@@ -383,6 +698,9 @@ static int qemu_bl2_handle_post_image_load(unsigned int image_id)
 					bl_mem_params->image_info.image_base;
 		break;
 #endif
+	case BL33_EXTRA1_IMAGE_ID:
+		bl_mem_params->ep_info.spsr = qemu_get_spsr_for_bl33_entry();
+		break;
 	default:
 		/* Do nothing in default case */
 		break;
@@ -397,6 +715,9 @@ static int qemu_bl2_handle_post_image_load(unsigned int image_id)
  ******************************************************************************/
 int bl2_plat_handle_post_image_load(unsigned int image_id)
 {
+#ifdef __Nebula__
+	nbl_bl2_handle_post_image_load(image_id);
+#endif
 	return qemu_bl2_handle_post_image_load(image_id);
 }
 

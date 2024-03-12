@@ -196,6 +196,37 @@ static bl_mem_params_node_t bl2_mem_params_descs[] = {
 	  .image_info.image_max_size = NS_IMAGE_MAX_SIZE,
 # endif /* !PRELOADED_BL33_BASE */
 
+	  .next_handoff_image_id = BL33_EXTRA1_IMAGE_ID,
+	},
+	/* Fill BL33 extra1 related information */
+	{ .image_id = BL33_EXTRA1_IMAGE_ID,
+
+	  SET_STATIC_PARAM_HEAD(ep_info, PARAM_EP, VERSION_2,
+				entry_point_info_t, NON_SECURE | EXECUTABLE),
+	  .ep_info.pc = (BL33_EXTRA1_BASE+0x10000),
+
+	  SET_STATIC_PARAM_HEAD(image_info, PARAM_EP, VERSION_2, image_info_t,
+				0),
+
+	  .image_info.image_base = BL33_EXTRA1_BASE + BL33_EXTRA1_OFFSET,
+	  .image_info.image_max_size = BL33_EXTRA1_LIMIT,
+
+	  .next_handoff_image_id = INVALID_IMAGE_ID,
+	},
+
+	/* Fill BL33 extra2 related information */
+	{ .image_id = BL33_EXTRA2_IMAGE_ID,
+
+	  SET_STATIC_PARAM_HEAD(ep_info, PARAM_EP, VERSION_2,
+				entry_point_info_t, NON_SECURE | EXECUTABLE),
+	  .ep_info.pc = (BL33_EXTRA2_BASE),
+
+	  SET_STATIC_PARAM_HEAD(image_info, PARAM_EP, VERSION_2, image_info_t,
+				0),
+
+	  .image_info.image_base = BL33_EXTRA2_BASE,
+	  .image_info.image_max_size = BL33_EXTRA2_LIMIT,
+
 	  .next_handoff_image_id = INVALID_IMAGE_ID,
 	}
 #endif /* !EL3_PAYLOAD_BASE */
