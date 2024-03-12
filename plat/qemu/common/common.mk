@@ -76,6 +76,8 @@ BL31_SOURCES		+=	${QEMU_CPU_LIBS}				\
 				common/fdt_fixup.c				\
 				${QEMU_GIC_SOURCES}
 
+PLAT_INCLUDES += -Iservices/spd/nebula
+
 # CPU flag enablement
 ifeq (${ARCH},aarch64)
 
@@ -117,6 +119,11 @@ ENABLE_FEAT_FGT		:=	2
 # 8.7
 ENABLE_FEAT_HCX		:=	2
 
+ifeq (${SPD},nebula)
+	ENABLE_SVE_FOR_NS	:= 0
+	ENABLE_SME_FOR_NS	:= 0
+else
+
 # SPM_MM is not compatible with ENABLE_SVE_FOR_NS (build breaks)
 ifeq (${SPM_MM},1)
 	ENABLE_SVE_FOR_NS	:= 0
@@ -124,7 +131,9 @@ ifeq (${SPM_MM},1)
 else
 	ENABLE_SVE_FOR_NS	:= 2
 	ENABLE_SME_FOR_NS	:= 2
-endif
+endif # endif (${SPM_MM},1)
+
+endif # endif (${SPD},nebula)
 
 # Treating this as a memory-constrained port for now
 USE_COHERENT_MEM	:=	0

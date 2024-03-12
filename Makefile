@@ -1436,6 +1436,7 @@ $(eval $(call add_defines,\
 	PSA_CRYPTO	\
 	ENABLE_CONSOLE_GETC \
 	INIT_UNUSED_NS_EL2	\
+	__Nebula__ \
 )))
 
 ifeq (${SANITIZE_UB},trap)
