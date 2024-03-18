@@ -9,10 +9,15 @@
 #include <platform_def.h>
 #include <plat/common/platform.h>
 
+#ifdef SPD_nebula
+/* no need to initial secure interrupt */
+static const interrupt_prop_t qemu_interrupt_props[] = {};
+#else
 static const interrupt_prop_t qemu_interrupt_props[] = {
 	PLATFORM_G1S_PROPS(INTR_GROUP1S),
 	PLATFORM_G0_PROPS(INTR_GROUP0)
 };
+#endif
 
 static uintptr_t qemu_rdistif_base_addrs[PLATFORM_CORE_COUNT];
 
