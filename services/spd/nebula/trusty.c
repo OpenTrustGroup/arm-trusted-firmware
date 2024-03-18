@@ -242,7 +242,7 @@ void trigger_sirq_ipi(void)
 void gic_configure_secure_irq(void)
 {
 	/* Reserve the IPI 14 for Nebula TEE irq routing*/
-	plat_ic_set_interrupt_type(MP_IPI_SIRQ, INTR_GROUP1S);
+	plat_ic_set_interrupt_type(MP_IPI_SIRQ, INTR_TYPE_S_EL1);
 	plat_ic_set_interrupt_priority(MP_IPI_SIRQ, 0);
 	plat_ic_enable_interrupt(MP_IPI_SIRQ);
 }
