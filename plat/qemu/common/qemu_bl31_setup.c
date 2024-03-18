@@ -83,6 +83,9 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 		if (bl_params->image_id == BL33_IMAGE_ID)
 			bl33_image_ep_info = *bl_params->ep_info;
 
+		if (bl_params->image_id == BL33_EXTRA1_IMAGE_ID)
+			bl33_extra1_image_ep_info = *bl_params->ep_info;
+
 		bl_params = bl_params->next_params_info;
 	}
 
