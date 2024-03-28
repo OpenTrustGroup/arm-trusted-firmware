@@ -41,6 +41,9 @@
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
 static entry_point_info_t bl33_extra1_image_ep_info;
+#if SPD_nebula
+uint32_t tee_system_mode;
+#endif
 
 /*******************************************************************************
  * Perform any BL3-1 early platform setup.  Here is an opportunity to copy
@@ -80,8 +83,12 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 		if (bl_params->image_id == BL32_IMAGE_ID)
 			bl32_image_ep_info = *bl_params->ep_info;
 
-		if (bl_params->image_id == BL33_IMAGE_ID)
+		if (bl_params->image_id == BL33_IMAGE_ID) {
 			bl33_image_ep_info = *bl_params->ep_info;
+#if SPD_nebula
+			tee_system_mode = (uint32_t)bl_params->ep_info->args.arg1;
+#endif
+		}
 
 		if (bl_params->image_id == BL33_EXTRA1_IMAGE_ID)
 			bl33_extra1_image_ep_info = *bl_params->ep_info;
@@ -141,8 +148,11 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 	assert(sec_state_is_valid(type));
 #ifdef SPD_nebula
 	if (type == NON_SECURE) {
-		next_image_info = (GET_EL(bl33_image_ep_info.spsr) == MODE_EL2)
-			? &bl33_image_ep_info : &bl33_extra1_image_ep_info;
+		if(tee_system_mode == 1) {
+			next_image_info = &bl33_extra1_image_ep_info;
+		} else {
+			next_image_info = &bl33_image_ep_info;
+		}
 	} else {
 		next_image_info = &bl32_image_ep_info;
 	}

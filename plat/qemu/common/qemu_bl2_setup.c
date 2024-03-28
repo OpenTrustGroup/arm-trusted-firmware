@@ -498,10 +498,6 @@ static uint32_t qemu_get_spsr_for_bl33_entry(void)
 	 * the FIP ToC and allowing the platform to have a say as
 	 * well.
 	 */
-#ifdef SPD_nebula
-	if (tee_system_mode == 1)
-		mode = MODE_EL1;
-#endif
 	spsr = SPSR_64(mode, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS);
 #else
 	spsr = SPSR_MODE32(MODE32_svc,
@@ -678,6 +674,8 @@ static int qemu_bl2_handle_post_image_load(unsigned int image_id)
 		/* BL33 expects to receive the primary CPU MPID (through r0) */
 #ifdef SPD_nebula
 		/* The arg0 is stored device tree address, do not overwrite arg0 */
+		/* The arg1 save tee system mode bl31 apply*/
+		bl_mem_params->ep_info.args.arg1 = tee_system_mode;
 #else
 		/* BL33 expects to receive the primary CPU MPID (through r0) */
 		bl_mem_params->ep_info.args.arg0 = 0xffff & read_mpidr();
