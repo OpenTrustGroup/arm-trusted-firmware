@@ -586,7 +586,7 @@ static int32_t trusty_init(void)
 	ep_info = bl31_plat_get_next_image_ep_info(SECURE);
 	assert(ep_info);
 
-	//fpregs_context_save(get_fpregs_ctx(cm_get_context(NON_SECURE)));
+	fpregs_context_save(get_fpregs_ctx(cm_get_context(NON_SECURE)));
 	cm_el1_sysregs_context_save(NON_SECURE);
 
 	cm_set_context(&ctx->cpu_ctx, SECURE);
@@ -603,7 +603,7 @@ static int32_t trusty_init(void)
 	}
 
 	cm_el1_sysregs_context_restore(SECURE);
-	//fpregs_context_restore(get_fpregs_ctx(cm_get_context(SECURE)));
+	fpregs_context_restore(get_fpregs_ctx(cm_get_context(SECURE)));
 	cm_set_next_eret_context(SECURE);
 
 	ctx->saved_security_state = ~0; /* initial saved state is invalid */
@@ -612,7 +612,7 @@ static int32_t trusty_init(void)
 	trusty_context_switch_helper(&ctx->saved_sp, &zero_args);
 
 	cm_el1_sysregs_context_restore(NON_SECURE);
-	//fpregs_context_restore(get_fpregs_ctx(cm_get_context(NON_SECURE)));
+	fpregs_context_restore(get_fpregs_ctx(cm_get_context(NON_SECURE)));
 	cm_set_next_eret_context(NON_SECURE);
 
 #if ARM_GIC_ARCH == 3

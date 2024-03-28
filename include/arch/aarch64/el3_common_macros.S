@@ -116,8 +116,11 @@
 	 * Initialise CPTR_EL3, setting all fields rather than relying on hw.
 	 * All fields are architecturally UNKNOWN on reset.
 	 * ---------------------------------------------------------------------
+	 * CPTR_EL3.TFP: Set to zero so that accesses to the V- or Z- registers
+	 *  by Advanced SIMD, floating-point or SVE instructions (if implemented)
+	 *  do not trap to EL3.
 	 */
-	mov_imm x0, CPTR_EL3_RESET_VAL
+	mov_imm x0, CPTR_EL3_RESET_VAL & ~TFP_BIT
 	msr	cptr_el3, x0
 
 	/*
