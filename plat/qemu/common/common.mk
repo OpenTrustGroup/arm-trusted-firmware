@@ -119,6 +119,7 @@ ENABLE_FEAT_FGT		:=	2
 # 8.7
 ENABLE_FEAT_HCX		:=	2
 
+# TODO: remove this check when FP registers are compatible with SVE/SME.
 ifeq (${SPD},nebula)
 	ENABLE_SVE_FOR_NS	:= 0
 	ENABLE_SME_FOR_NS	:= 0
