@@ -677,8 +677,10 @@ static int qemu_bl2_handle_post_image_load(unsigned int image_id)
 		/* The arg1 save tee system mode bl31 apply*/
 		bl_mem_params->ep_info.args.arg1 = tee_system_mode;
 #else
-		/* BL33 expects to receive the primary CPU MPID (through r0) */
-		bl_mem_params->ep_info.args.arg0 = 0xffff & read_mpidr();
+		/*
+		 * Qemu plat not bl32, start up bl33, the arg0 stored device tree address,
+		 * assign values in function nbl_bl2_handle_post_image_load.
+		 */
 #endif
 #endif // ARM_LINUX_KERNEL_AS_BL33
 
