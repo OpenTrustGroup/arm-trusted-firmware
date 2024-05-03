@@ -119,22 +119,22 @@ ENABLE_FEAT_FGT		:=	2
 # 8.7
 ENABLE_FEAT_HCX		:=	2
 
-# TODO: remove this check when FP registers are compatible with SVE/SME.
-ifeq (${SPD},nebula)
-	ENABLE_SVE_FOR_NS	:= 0
-	ENABLE_SME_FOR_NS	:= 0
-else
-
+ENABLE_SVE := 1
 # SPM_MM is not compatible with ENABLE_SVE_FOR_NS (build breaks)
 ifeq (${SPM_MM},1)
+	ENABLE_SVE := 0
+endif
+# Same for CTX_INCLUDE_FPREGS
+ifeq (${CTX_INCLUDE_FPREGS},1)
+	ENABLE_SVE := 0
+endif
+ifeq (${ENABLE_SVE},0)
 	ENABLE_SVE_FOR_NS	:= 0
 	ENABLE_SME_FOR_NS	:= 0
 else
 	ENABLE_SVE_FOR_NS	:= 2
 	ENABLE_SME_FOR_NS	:= 2
-endif # endif (${SPM_MM},1)
-
-endif # endif (${SPD},nebula)
+endif
 
 # Treating this as a memory-constrained port for now
 USE_COHERENT_MEM	:=	0
