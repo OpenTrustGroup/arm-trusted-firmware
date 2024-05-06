@@ -23,7 +23,7 @@
 #include "smcall.h"
 
 /* macro to check if Hypervisor is enabled in the HCR_EL2 register */
-#define HYP_ENABLE_FLAG		0x286001
+#define HYP_ENABLE_FLAG		0x80000000
 
 /* length of Trusty's input parameters (in bytes) */
 #define TRUSTY_PARAMS_LEN_BYTES	(4096*2)
