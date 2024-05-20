@@ -83,6 +83,7 @@ struct args trusty_init_context_stack(void **sp, void *new_stack);
 struct args trusty_context_switch_helper(void **sp, void *smc_params);
 
 static uint32_t current_vmid;
+static uint32_t last_vmid[PLATFORM_CORE_COUNT];
 
 static uint64_t nbl_mem_base;
 static uint64_t nbl_dt_base;
@@ -159,6 +160,7 @@ static struct args trusty_context_switch(uint32_t security_state, uint64_t r0,
 #if ARM_GIC_ARCH == 3
 
 #define MP_IPI_NS_NOP 15
+#define MP_IPI_NS_NOP_UOS 13
 #define MP_IPI_SIRQ 14
 
 enum dequeue_action_t {
@@ -183,8 +185,8 @@ void enqueue_int_on(int cpu, int id, enum dequeue_action_t action)
 	int idx;
 
 	spin_lock(&int_list_lock);
-
 	idx = percpu_idx[cpu];
+
 	if (idx < INTLIST_MAX_LEN) {
 
 		percpu_int_list[cpu][idx].target_cpu = cpu;
@@ -211,7 +213,12 @@ void dequeue_ints(void)
 	/*
 	 * Clear MP_IPI_NS_NOP pending bit
 	 */
-	gicv3_clear_interrupt_pending(MP_IPI_NS_NOP, cpu);
+
+	if (last_vmid[cpu] == 1) {
+		gicv3_clear_interrupt_pending(MP_IPI_NS_NOP, cpu);
+	} else if (last_vmid[cpu] == 2) {
+		gicv3_clear_interrupt_pending(MP_IPI_NS_NOP_UOS, cpu);
+	}
 
 	spin_lock(&int_list_lock);
 
@@ -242,8 +249,13 @@ void dequeue_ints(void)
 
 void trigger_ns_nop_ipi(void)
 {
-	VERBOSE("%s: trigger MP_IPI_NS_NOP\n", __func__);
-	plat_ic_raise_ns_sgi(MP_IPI_NS_NOP, read_mpidr());
+	if(last_vmid[plat_my_core_pos()] == 1) {
+		VERBOSE("%s: trigger MP_IPI_NS_NOP\n", __func__);
+		plat_ic_raise_ns_sgi(MP_IPI_NS_NOP, read_mpidr());
+	} else if (last_vmid[plat_my_core_pos()] == 2) {
+		VERBOSE("%s: trigger MP_IPI_NS_NOP_UOS\n", __func__);
+		plat_ic_raise_ns_sgi(MP_IPI_NS_NOP_UOS, read_mpidr());
+	}
 }
 
 void trigger_sirq_ipi(void)
@@ -556,6 +568,7 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 				SMC_RET1(handle, SM_ERR_BUSY);
 			}
 			current_vmid = vmid;
+			last_vmid[plat_my_core_pos()] = current_vmid;
 #if ARM_GIC_ARCH == 3
 			/* Inject g1s pending interrupts */
 			dequeue_ints();
