@@ -280,6 +280,14 @@ void get_tee_system_mode(void)
 	offset = fdt_path_offset((void*)(uintptr_t)PLAT_QEMU_DT_BASE, "/nebula/tee_system_mode@1");
 	tee_system_mode = offset < 0 ? 0 : 1;
 }
+
+bool has_android_firmware(void)
+{
+	int offset;
+
+	offset = fdt_path_offset((void*)(uintptr_t)PLAT_QEMU_DT_BASE, "/firmware/android");
+	return offset >= 0;
+}
 #endif
 
 
@@ -368,7 +376,8 @@ static void remove_na_node_from_tee(void *fdt)
 static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 {
 	fdt64_t value[2];
-	uint64_t base, size, offset, initrd_start, initrd_end;
+	uint64_t base, size;
+	uint64_t offset, initrd_start, initrd_end;
 	bl_mem_params_node_t *bl_mem_params = get_bl_mem_params_node(image_id);
 
 	switch (image_id) {
@@ -391,11 +400,17 @@ static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 			break;
 		case BL33_EXTRA2_IMAGE_ID: /* REE Rootfs */
 			base = qemu_fdt_get_prop(node[image_id], "reg", 0);
-			offset = qemu_fdt_get_prop(node[image_id], "offset", 0);
-			initrd_start = cpu_to_fdt64(base + offset);
-			initrd_end = cpu_to_fdt64(base + offset + bl_mem_params->image_info.image_size);
-			qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-start", &initrd_start, sizeof(initrd_start));
-			qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-end", &initrd_end, sizeof(initrd_end));
+			if (has_android_firmware() == false) {
+				/* Using normal rootfs if REE or SOS is not Android system */
+				offset = qemu_fdt_get_prop(node[image_id], "offset", 0);
+				initrd_start = cpu_to_fdt64(base + offset);
+				initrd_end = cpu_to_fdt64(base + offset + bl_mem_params->image_info.image_size);
+				qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-start", &initrd_start, sizeof(initrd_start));
+				qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-end", &initrd_end, sizeof(initrd_end));
+				INFO("REE or SOS is Linux rootfs system\n");
+			} else {
+				INFO("REE or SOS is Android System\n");
+			}
 			/* Remove all regions in ree device tree to avoid linux kernel complains. */
 			remove_na_node_from_ree((void*)(uintptr_t)base);
 			/* Remove unnecessary stuffs in hee device tree. */
