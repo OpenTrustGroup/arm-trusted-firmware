@@ -608,12 +608,6 @@ void cm_manage_extensions_el3(void)
 #if IMAGE_BL31
 void manage_extensions_nonsecure_per_world(void)
 {
-
-// TODO: remove this workaround when FP registers are compatible with SVE/SME
-#ifdef SPD_nebula
-	init_per_world_context(&per_world_context[CPU_CONTEXT_NS]);
-#endif
-
 	if (is_feat_sme_supported()) {
 		sme_enable_per_world(&per_world_context[CPU_CONTEXT_NS]);
 	}
@@ -641,12 +635,6 @@ void manage_extensions_nonsecure_per_world(void)
 static void manage_extensions_secure_per_world(void)
 {
 #if IMAGE_BL31
-
-// TODO: remove this workaround when FP registers are compatible with SVE/SME
-#ifdef SPD_nebula
-	init_per_world_context(&per_world_context[CPU_CONTEXT_SECURE]);
-#endif
-
 	if (is_feat_sme_supported()) {
 
 		if (ENABLE_SME_FOR_SWD) {
