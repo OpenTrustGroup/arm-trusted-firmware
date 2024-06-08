@@ -116,29 +116,11 @@
 	 * Initialise CPTR_EL3, setting all fields rather than relying on hw.
 	 * All fields are architecturally UNKNOWN on reset.
 	 * ---------------------------------------------------------------------
-	 * CPTR_EL3.TCPAC: Set to zero so that any accesses to CPACR_EL1,
-	 *  CPTR_EL2, CPACR, or HCPTR do not trap to EL3.
-	 *
-	 * CPTR_EL3.TTA: Set to zero so that not accesses to the trace system
-	 *  registers trap to EL3 from all exception levels and security
-	 *  states when system register trace is implemented.
-	 *
-	 * CPTR_EL3.TTA: Set to zero so that System register accesses to the
-	 *  trace registers do not trap to EL3.
-	 *
 	 * CPTR_EL3.TFP: Set to zero so that accesses to the V- or Z- registers
 	 *  by Advanced SIMD, floating-point or SVE instructions (if implemented)
 	 *  do not trap to EL3.
-	 *
-	 * CPTR_EL3.TAM: Set to zero so that Activity Monitor access is
-	 *  trapped to EL3 by default.
-	 *
-	 * CPTR_EL3.EZ: Set to one so that not cause SVE functionality to be trapped.
-	 *
 	 */
-
-	 /* TODO: why context-a53 set CPTR_EZ_BIT, the system cann't start up. */
-	mov_imm x0, (CPTR_EL3_RESET_VAL & ~(TCPAC_BIT | TAM_BIT | TTA_BIT | TFP_BIT) | CPTR_EZ_BIT)
+	mov_imm x0, CPTR_EL3_RESET_VAL & ~TFP_BIT
 	msr	cptr_el3, x0
 
 	/*
