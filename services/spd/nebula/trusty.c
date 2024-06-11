@@ -586,7 +586,12 @@ static int32_t trusty_init(void)
 	ep_info = bl31_plat_get_next_image_ep_info(SECURE);
 	assert(ep_info);
 
-	fpregs_context_save(get_fpregs_ctx(cm_get_context(NON_SECURE)));
+	/*
+	 * The fp registers were not saved here because they are not used yet
+	 * and should be "zeros". The "TFP" bit status also stops us accessing
+	 * the fp registers.
+	 * See commit "trusty: delete the fp registers save&restore at init stage".
+	 */
 	cm_el1_sysregs_context_save(NON_SECURE);
 
 	cm_set_context(&ctx->cpu_ctx, SECURE);
@@ -603,7 +608,9 @@ static int32_t trusty_init(void)
 	}
 
 	cm_el1_sysregs_context_restore(SECURE);
-	fpregs_context_restore(get_fpregs_ctx(cm_get_context(SECURE)));
+	/*
+	 * Skip fp registers restore as they are not used yet.
+	 */
 	cm_set_next_eret_context(SECURE);
 
 	ctx->saved_security_state = ~0; /* initial saved state is invalid */
@@ -612,6 +619,10 @@ static int32_t trusty_init(void)
 	trusty_context_switch_helper(&ctx->saved_sp, &zero_args);
 
 	cm_el1_sysregs_context_restore(NON_SECURE);
+	/*
+	 * We can touch fp registers now, restore them to avoid leaking
+	 * TEE fp registers to non-secure world.
+	 */
 	fpregs_context_restore(get_fpregs_ctx(cm_get_context(NON_SECURE)));
 	cm_set_next_eret_context(NON_SECURE);
 
