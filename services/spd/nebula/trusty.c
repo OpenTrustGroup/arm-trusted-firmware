@@ -21,6 +21,7 @@
 
 #include "sm_err.h"
 #include "smcall.h"
+#include "../drivers/arm/gic/v3/gicv3_private.h"
 
 /* macro to check if Hypervisor is enabled in the HCR_EL2 register */
 #define HYP_ENABLE_FLAG		0x80000000
@@ -578,6 +579,9 @@ static int32_t trusty_init(void)
 	uint32_t cpu = plat_my_core_pos();
 	int reg_width = GET_RW(read_ctx_reg(get_el3state_ctx(&ctx->cpu_ctx),
 			       CTX_SPSR_EL3));
+	uintptr_t gicr_base = gicv3_driver_data->rdistif_base_addrs[cpu];
+	unsigned int saved_isenabler0_reg = mmio_read_32(gicr_base + GICR_ISENABLER0);
+	unsigned int tmp_isenabler0_reg = 0;
 
 	/*
 	 * Get information about the Trusty image. Its absence is a critical
@@ -633,6 +637,13 @@ static int32_t trusty_init(void)
 	 * in the Nebula BL32's percpu initial flow
 	 */
 	gic_configure_secure_irq();
+
+	/*
+	 * Re-enable the SGI/PPI interrupts that already enabled before trusty_init()
+	 */
+	tmp_isenabler0_reg = mmio_read_32(gicr_base + GICR_ISENABLER0);
+	tmp_isenabler0_reg |= saved_isenabler0_reg;
+	mmio_write_32(gicr_base + GICR_ISENABLER0, tmp_isenabler0_reg);
 #endif
 
 	return 1;
