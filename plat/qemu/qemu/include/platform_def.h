@@ -253,7 +253,13 @@
 #define GICC_BASE			0x8010000
 #define GICR_BASE			0x80A0000
 
-
+#ifdef SPD_nebula
+#define ARM_IRQ_SEC_PHY_TIMER	29
+#define PLATFORM_G1S_PROPS(grp)						\
+	INTR_PROP_DESC(ARM_IRQ_SEC_PHY_TIMER, GIC_HIGHEST_SEC_PRIORITY,	\
+					   grp, GIC_INTR_CFG_LEVEL)
+#define PLATFORM_G0_PROPS(grp)
+#else
 #define QEMU_IRQ_SEC_SGI_0		8
 #define QEMU_IRQ_SEC_SGI_1		9
 #define QEMU_IRQ_SEC_SGI_2		10
@@ -297,6 +303,7 @@
 #endif
 
 #define PLATFORM_G0_PROPS(grp)		DESC_G0_IRQ_SEC_SGI(grp)
+#endif
 
 /*
  * DT related constants
