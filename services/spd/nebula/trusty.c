@@ -83,6 +83,8 @@ struct args trusty_init_context_stack(void **sp, void *new_stack);
 struct args trusty_context_switch_helper(void **sp, void *smc_params);
 
 static uint32_t current_vmid;
+static uint32_t current_vmid_ref_count;
+spinlock_t vmid_lock;
 static uint32_t last_vmid[PLATFORM_CORE_COUNT];
 
 static uint64_t nbl_mem_base;
@@ -559,16 +561,29 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 			if (is_hypervisor_mode())
 				vmid = SMC_GET_GP(handle, CTX_GPREG_X7);
 
+			spin_lock(&vmid_lock);
 			if ((current_vmid != 0) && (current_vmid != vmid)) {
 				/* This message will cause SMC mechanism
 				 * abnormal in multi-guest environment.
 				 * Change it to WARN in case you need it.
 				 */
 				VERBOSE("Previous SMC not finished.\n");
+				spin_unlock(&vmid_lock);
 				SMC_RET1(handle, SM_ERR_BUSY);
 			}
+
+			if(current_vmid == 0) {
+				if(current_vmid_ref_count != 0) {
+					ERROR("vm smc not return, vmid count:%d\n",current_vmid_ref_count);
+					assert((current_vmid_ref_count == 0));
+				}
+			}
 			current_vmid = vmid;
-			last_vmid[plat_my_core_pos()] = current_vmid;
+			current_vmid_ref_count++;
+			spin_unlock(&vmid_lock);
+
+			last_vmid[plat_my_core_pos()] = vmid;
+
 #if ARM_GIC_ARCH == 3
 			/* Inject g1s pending interrupts */
 			dequeue_ints();
@@ -593,7 +608,12 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 			}
 #endif
 
-			current_vmid = 0;
+			spin_lock(&vmid_lock);
+			current_vmid_ref_count--;
+			if(current_vmid_ref_count == 0) {
+				current_vmid = 0;
+			}
+			spin_unlock(&vmid_lock);
 
 			if (smc_fid == SMC_SC_VIRTIO_START)
 				virtio_has_probed = 1;
