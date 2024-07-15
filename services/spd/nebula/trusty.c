@@ -60,6 +60,10 @@ struct trusty_cpu_ctx {
 	uint64_t	fiq_sp_el1;
 	gp_regs_t	fiq_gpregs;
 	struct trusty_stack	secure_stack;
+#if ENABLE_PAUTH
+	uint64_t	suspend_apiakey[2];
+	uint64_t 	resume_apiakey[2];
+#endif
 };
 
 struct args {
@@ -103,7 +107,6 @@ static struct args trusty_context_switch(uint32_t security_state, uint64_t r0,
 	struct args ret;
 	struct trusty_cpu_ctx *ctx = get_trusty_ctx();
 	struct trusty_cpu_ctx *ctx_smc;
-
 	assert(ctx->saved_security_state != security_state);
 
 	ret.r7 = 0;
@@ -122,6 +125,13 @@ static struct args trusty_context_switch(uint32_t security_state, uint64_t r0,
 	ret.r1 = r1;
 	ret.r0 = r0;
 
+#if ENABLE_PAUTH
+	if (r0 == SMC_FC_CPU_RESUME) {
+		write_apiakeylo_el1(ctx->suspend_apiakey[0]);
+		write_apiakeyhi_el1(ctx->suspend_apiakey[1]);
+		isb();
+	}
+#endif
 	/*
 	 * To avoid the additional overhead in PSCI flow, skip FP context
 	 * saving/restoring in case of CPU suspend and resume, asssuming that
@@ -551,7 +561,6 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 #endif
 			ret = trusty_context_switch(NON_SECURE, smc_fid, x1,
 				x2, x3);
-
 #if ARM_GIC_ARCH == 3
 			if (IS_FASTCALL(smc_fid)) {
 				/* restore icc_igrpen1_el3 after fastcall */
@@ -662,6 +671,11 @@ static void trusty_cpu_suspend(void)
 	isb();
 #endif
 
+#if ENABLE_PAUTH
+	struct trusty_cpu_ctx *ctx = get_trusty_ctx();
+	ctx->suspend_apiakey[0] = read_apiakeylo_el1();
+	ctx->suspend_apiakey[1] = read_apiakeyhi_el1();
+#endif
 	ret = trusty_context_switch(NON_SECURE, SMC_FC_CPU_SUSPEND, 0, 0, 0);
 	if (ret.r0 != 0) {
 		INFO("%s: cpu %d, SMC_FC_CPU_SUSPEND returned unexpected value, %ld\n",
@@ -677,7 +691,7 @@ static void trusty_cpu_suspend(void)
 static void trusty_cpu_resume(void)
 {
 	struct args ret;
-
+	uint64_t cptr_el3;
 #if ARM_GIC_ARCH == 3
 	uint32_t icc_igrpen1_val;
 
@@ -688,11 +702,28 @@ static void trusty_cpu_resume(void)
 	isb();
 #endif
 
+#if ENABLE_PAUTH
+	struct trusty_cpu_ctx *ctx = get_trusty_ctx();
+	ctx->resume_apiakey[0] = read_apiakeylo_el1();
+	ctx->resume_apiakey[1] = read_apiakeyhi_el1();
+#endif
+
+	cptr_el3 = read_cptr_el3();
+	write_cptr_el3(per_world_context[CPU_CONTEXT_SECURE].ctx_cptr_el3);
+	isb();
 	ret = trusty_context_switch(NON_SECURE, SMC_FC_CPU_RESUME, 0, 0, 0);
 	if (ret.r0 != 0) {
 		INFO("%s: cpu %d, SMC_FC_CPU_RESUME returned unexpected value, %ld\n",
 		     __func__, plat_my_core_pos(), (unsigned long)ret.r0);
 	}
+	write_cptr_el3(cptr_el3);
+	isb();
+
+#if ENABLE_PAUTH
+	write_apiakeylo_el1(ctx->resume_apiakey[0]);
+	write_apiakeyhi_el1(ctx->resume_apiakey[1]);
+	isb();
+#endif
 
 #if ARM_GIC_ARCH == 3
 	write_icc_igrpen1_el3(icc_igrpen1_val);
