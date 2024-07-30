@@ -242,11 +242,13 @@ void dequeue_ints(void)
 
 void trigger_ns_nop_ipi(void)
 {
+	VERBOSE("%s: trigger MP_IPI_NS_NOP\n", __func__);
 	plat_ic_raise_ns_sgi(MP_IPI_NS_NOP, read_mpidr());
 }
 
 void trigger_sirq_ipi(void)
 {
+	VERBOSE("%s: trigger MP_IPI_SIRQ\n", __func__);
 	plat_ic_raise_s_el1_sgi(MP_IPI_SIRQ, read_mpidr());
 }
 
@@ -309,6 +311,7 @@ static uint64_t trusty_fiq_handler(uint32_t id,
 	 */
 	uint32_t el1_g1s_int_id;
 	el1_g1s_int_id = plat_ic_get_pending_interrupt_id();
+	VERBOSE("%s: el1_g1s_int_id %u\n", __func__, el1_g1s_int_id);
 	if (el1_g1s_int_id < 1022) {
 		/* Disable G1S interrupt, and put in list */
 		enqueue_int(el1_g1s_int_id, DEQUEUE_ACTION_ENABLE_INT);
@@ -481,11 +484,15 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 	}
 
 	if (is_caller_secure(flags)) {
+		VERBOSE("%s: TEE smc fid 0x%x\n", __func__, smc_fid);
 		if (smc_fid == SMC_SC_NS_RETURN) {
 #if ARM_GIC_ARCH == 3
 			gicv3_clear_interrupt_pending(MP_IPI_SIRQ, plat_my_core_pos());
 #endif
+			VERBOSE("%s: TEE smc fid 0x%x conext switch to REE\n", __func__, smc_fid);
 			ret = trusty_context_switch(SECURE, x1, 0, 0, 0);
+			VERBOSE("%s: TEE smc fid 0x%x return from REE\n", __func__, smc_fid);
+
 			SMC_RET8(handle, ret.r0, ret.r1, ret.r2, ret.r3,
 				 ret.r4, ret.r5, ret.r6, ret.r7);
 		}
@@ -526,6 +533,7 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 		     plat_my_core_pos());
 		SMC_RET1(handle, SMC_UNK);
 	} else {
+		VERBOSE("%s: REE smc fid 0x%x\n", __func__, smc_fid);
 		switch (smc_fid) {
 		case SMC_FC64_SET_FIQ_HANDLER:
 			return trusty_set_fiq_handler(handle, x1, x2, x3);
@@ -559,8 +567,11 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 				isb();
 			}
 #endif
+			VERBOSE("%s: REE smc fid 0x%x conext switch to TEE\n", __func__, smc_fid);
 			ret = trusty_context_switch(NON_SECURE, smc_fid, x1,
 				x2, x3);
+			VERBOSE("%s: REE smc fid 0x%x return from TEE\n", __func__, smc_fid);
+
 #if ARM_GIC_ARCH == 3
 			if (IS_FASTCALL(smc_fid)) {
 				/* restore icc_igrpen1_el3 after fastcall */
