@@ -132,9 +132,15 @@ ifeq (${ENABLE_SVE},0)
 	ENABLE_SVE_FOR_NS	:= 0
 	ENABLE_SME_FOR_NS	:= 0
 else
+ifeq (${SPD},opteed)
+	ENABLE_SVE_FOR_NS	:= 0
+	ENABLE_SME_FOR_NS	:= 0
+else
 	ENABLE_SVE_FOR_NS	:= 2
 	ENABLE_SME_FOR_NS	:= 2
 endif
+endif
+
 
 # Treating this as a memory-constrained port for now
 USE_COHERENT_MEM	:=	0

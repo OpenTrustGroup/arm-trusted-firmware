@@ -381,7 +381,9 @@ static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 	bl_mem_params_node_t *bl_mem_params = get_bl_mem_params_node(image_id);
 
 	switch (image_id) {
+#ifdef SPD_nebula
 		case BL32_IMAGE_ID:        /* TEE */
+#endif
 		case BL33_IMAGE_ID:        /* HEE */
 		case BL33_EXTRA1_IMAGE_ID: /* REE */
 			base = qemu_fdt_get_prop(node[image_id], "reg", 0);
@@ -417,6 +419,8 @@ static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 			remove_na_node_from_hee((void*)(uintptr_t)qemu_fdt_get_prop(node[BL33_IMAGE_ID], "reg", 0));
 			/* Remove unnecessary stuffs in tee device tree. */
 			remove_na_node_from_tee((void*)(uintptr_t)qemu_fdt_get_prop(node[BL32_IMAGE_ID], "reg", 0));
+			break;
+		default:
 			break;
 	}
 

@@ -188,10 +188,17 @@
 # define BL32_BASE			0xe0010000
 # define BL32_LIMIT			0x1c000000
 #else
+#ifdef SPD_opteed
+# define BL32_MEM_BASE			0xe0000000
+# define BL32_MEM_SIZE			0x1c000000
+# define BL32_BASE			0xe0010000
+# define BL32_LIMIT			0x1c000000
+#else
 # define BL32_MEM_BASE			SEC_DRAM_BASE
 # define BL32_MEM_SIZE			SEC_DRAM_SIZE
 # define BL32_BASE			BL32_DRAM_BASE
 # define BL32_LIMIT			(BL32_DRAM_LIMIT - FW_HANDOFF_SIZE)
+#endif
 #endif
 #else
 # error "Unsupported BL32_RAM_LOCATION_ID value"
@@ -205,8 +212,13 @@
 #define NS_IMAGE_OFFSET			0x40010000
 #define NS_IMAGE_MAX_SIZE		(NS_DRAM0_BASE + NS_DRAM0_SIZE - NS_IMAGE_OFFSET)
 #else
+#ifdef SPD_opteed
+#define NS_IMAGE_OFFSET			0x40010000
+#define NS_IMAGE_MAX_SIZE		(NS_DRAM0_BASE + NS_DRAM0_SIZE - NS_IMAGE_OFFSET)
+#else
 #define NS_IMAGE_OFFSET			(NS_DRAM0_BASE + 0x20000000)
 #define NS_IMAGE_MAX_SIZE		(NS_DRAM0_SIZE - 0x20000000)
+#endif
 #endif
 
 #define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 32)
