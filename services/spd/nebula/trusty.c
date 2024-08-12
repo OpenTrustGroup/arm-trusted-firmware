@@ -505,7 +505,7 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 #endif
 			VERBOSE("%s: TEE smc fid 0x%x conext switch to REE\n", __func__, smc_fid);
 			ret = trusty_context_switch(SECURE, x1, 0, 0, 0);
-			VERBOSE("%s: TEE smc fid 0x%x return from REE\n", __func__, smc_fid);
+			VERBOSE("%s: TEE smc fid 0x%x return from REE smc fid 0x%lx\n", __func__, smc_fid, ret.r0);
 
 			SMC_RET8(handle, ret.r0, ret.r1, ret.r2, ret.r3,
 				 ret.r4, ret.r5, ret.r6, ret.r7);
@@ -598,7 +598,8 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 			VERBOSE("%s: REE smc fid 0x%x conext switch to TEE\n", __func__, smc_fid);
 			ret = trusty_context_switch(NON_SECURE, smc_fid, x1,
 				x2, x3);
-			VERBOSE("%s: REE smc fid 0x%x return from TEE\n", __func__, smc_fid);
+			VERBOSE("%s: REE smc fid 0x%x return from TEE smc fid 0x%lx\n", __func__,
+				smc_fid, ret.r0);
 
 #if ARM_GIC_ARCH == 3
 			if (IS_FASTCALL(smc_fid)) {
