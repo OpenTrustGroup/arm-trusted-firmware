@@ -41,6 +41,7 @@
 
 #define IS_FASTCALL(x) (x & (1U << 31))
 #define ARM_GIC_ARCH  3
+#define MAX_VMID 0xFF
 
 struct trusty_stack {
 	uint8_t space[PLATFORM_STACK_SIZE] __aligned(16);
@@ -82,7 +83,7 @@ struct trusty_cpu_ctx trusty_cpu_ctx[PLATFORM_CORE_COUNT];
 struct args trusty_init_context_stack(void **sp, void *new_stack);
 struct args trusty_context_switch_helper(void **sp, void *smc_params);
 
-static uint32_t current_vmid;
+static uint32_t current_vmid = MAX_VMID;
 static uint32_t current_vmid_ref_count;
 spinlock_t vmid_lock;
 static uint32_t last_vmid[PLATFORM_CORE_COUNT];
@@ -236,8 +237,7 @@ void dequeue_ints(void)
 			if (id <= 15) {
 				/* Currently only support for triggering secure ipi */
 				plat_ic_raise_s_el1_sgi(id, read_mpidr());
-			}
-			else {
+			} else {
 				/* The gicd interrupts are not supported */
 			}
 			break;
@@ -251,18 +251,21 @@ void dequeue_ints(void)
 
 void trigger_ns_nop_ipi(void)
 {
+	int cpu = plat_my_core_pos();
 	if(last_vmid[plat_my_core_pos()] == 1) {
-		VERBOSE("%s: trigger MP_IPI_NS_NOP\n", __func__);
+		VERBOSE("(%d) %s: trigger MP_IPI_NS_NOP\n", cpu, __func__);
 		plat_ic_raise_ns_sgi(MP_IPI_NS_NOP, read_mpidr());
 	} else if (last_vmid[plat_my_core_pos()] == 2) {
-		VERBOSE("%s: trigger MP_IPI_NS_NOP_UOS\n", __func__);
+		VERBOSE("(%d) %s: trigger MP_IPI_NS_NOP_UOS\n", cpu, __func__);
 		plat_ic_raise_ns_sgi(MP_IPI_NS_NOP_UOS, read_mpidr());
 	}
 }
 
 void trigger_sirq_ipi(void)
 {
-	VERBOSE("%s: trigger MP_IPI_SIRQ\n", __func__);
+	int cpu = plat_my_core_pos();
+
+	VERBOSE("(%d) %s: trigger MP_IPI_SIRQ\n", cpu, __func__);
 	plat_ic_raise_s_el1_sgi(MP_IPI_SIRQ, read_mpidr());
 }
 
@@ -298,13 +301,15 @@ static uint64_t trusty_fiq_handler(uint32_t id,
 				   void *handle,
 				   void *cookie)
 {
+	int cpu = plat_my_core_pos();
+
 	if (is_caller_secure(flags)) {
 		/*
-		 * Return to S-EL1 directly when the concurrent interrupts happend.
+		 * Return to S-EL1 directly when the concurrent interrupts happened.
 		 *
 		 * Here is an example to explain why it have to return S-EL1 directly.
 		 * When S-EL1 got the g1ns fiq(27), and then it trapped to EL3.
-		 * In the mean time the the g1s(29) happened.
+		 * In the mean time the g1s(29) happened.
 		 * Then EL3 got the highest pending irq number is g1s(29), and
 		 * EL3 treat it as a G1S interrupts that trapped from NS-EL1, but
 		 * it is trapped from S-EL1 actually.
@@ -324,8 +329,9 @@ static uint64_t trusty_fiq_handler(uint32_t id,
          * It's for injecting irq to tee when switching into secure el1
 	 */
 	uint32_t el1_g1s_int_id;
+
 	el1_g1s_int_id = plat_ic_get_pending_interrupt_id();
-	VERBOSE("%s: el1_g1s_int_id %u\n", __func__, el1_g1s_int_id);
+	VERBOSE("(%d) %s: el1_g1s_int_id %u\n", cpu, __func__, el1_g1s_int_id);
 	if (el1_g1s_int_id < 1022) {
 		/* Disable G1S interrupt, and put in list */
 		enqueue_int(el1_g1s_int_id, DEQUEUE_ACTION_ENABLE_INT);
@@ -435,12 +441,12 @@ static uint64_t get_secure_timer(void *handle)
 #ifdef PLAT_MTK
 	if (ret) {
 		/*
-		  MTK workaround:
-		    The trusty-pm linux driver will return NOTIFY_BAD for cpu_pm_enter
-		    if there has remained secure timer.
-		    The mcdi won't handle the failed case when cpu_pm_enter return error,
-		    eventually the G1NS is being off forever.
-		    So we should re-enable the G1NS in the gicv3 control register
+		 * MTK workaround:
+		 *    The trusty-pm linux driver will return NOTIFY_BAD for cpu_pm_enter
+		 *    if there has remained secure timer.
+		 *    The mcdi won't handle the failed case when cpu_pm_enter return error,
+		 *    eventually the G1NS is being off forever.
+		 *    So we should re-enable the G1NS in the gicv3 control register
 		 */
 		write_icc_igrpen1_el3(read_icc_igrpen1_el3() | IGRPEN1_EL3_ENABLE_G1NS_BIT);
 	}
@@ -452,6 +458,7 @@ static uint64_t get_secure_timer(void *handle)
 static void nbl_register_boot_entry(uint64_t entry_offset)
 {
 	entry_point_info_t *ep_info = bl31_plat_get_next_image_ep_info(SECURE);
+
 	ep_info->pc = (uintptr_t)(nbl_mem_base + entry_offset);
 }
 
@@ -481,6 +488,7 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 {
 	struct args ret;
 	uint32_t vmid = 0;
+	int cpu = plat_my_core_pos();
 	entry_point_info_t *ep_info = bl31_plat_get_next_image_ep_info(SECURE);
 #if ARM_GIC_ARCH == 3
 	uint32_t icc_igrpen1_val;
@@ -498,14 +506,14 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 	}
 
 	if (is_caller_secure(flags)) {
-		VERBOSE("%s: TEE smc fid 0x%x\n", __func__, smc_fid);
+		VERBOSE("(%d) %s:TEE smc fid 0x%x\n", cpu, __func__, smc_fid);
 		if (smc_fid == SMC_SC_NS_RETURN) {
 #if ARM_GIC_ARCH == 3
 			gicv3_clear_interrupt_pending(MP_IPI_SIRQ, plat_my_core_pos());
 #endif
-			VERBOSE("%s: TEE smc fid 0x%x conext switch to REE\n", __func__, smc_fid);
+			VERBOSE("(%d) %s: TEE smc fid 0x%x conext switch to REE\n", cpu, __func__, smc_fid);
 			ret = trusty_context_switch(SECURE, x1, 0, 0, 0);
-			VERBOSE("%s: TEE smc fid 0x%x return from REE smc fid 0x%lx\n", __func__, smc_fid, ret.r0);
+			VERBOSE("(%d) %s: TEE smc fid 0x%x return from REE smc fid 0x%lx\n", cpu, __func__, smc_fid, ret.r0);
 
 			SMC_RET8(handle, ret.r0, ret.r1, ret.r2, ret.r3,
 				 ret.r4, ret.r5, ret.r6, ret.r7);
@@ -547,7 +555,7 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 		     plat_my_core_pos());
 		SMC_RET1(handle, SMC_UNK);
 	} else {
-		VERBOSE("%s: REE smc fid 0x%x\n", __func__, smc_fid);
+		VERBOSE("(%d) %s: REE smc fid 0x%x\n", cpu, __func__, smc_fid);
 		switch (smc_fid) {
 		case SMC_FC64_SET_FIQ_HANDLER:
 			return trusty_set_fiq_handler(handle, x1, x2, x3);
@@ -562,7 +570,7 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 				vmid = SMC_GET_GP(handle, CTX_GPREG_X7);
 
 			spin_lock(&vmid_lock);
-			if ((current_vmid != 0) && (current_vmid != vmid)) {
+			if ((current_vmid != MAX_VMID) && (current_vmid != vmid)) {
 				/* This message will cause SMC mechanism
 				 * abnormal in multi-guest environment.
 				 * Change it to WARN in case you need it.
@@ -572,12 +580,6 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 				SMC_RET1(handle, SM_ERR_BUSY);
 			}
 
-			if(current_vmid == 0) {
-				if(current_vmid_ref_count != 0) {
-					ERROR("vm smc not return, vmid count:%d\n",current_vmid_ref_count);
-					assert((current_vmid_ref_count == 0));
-				}
-			}
 			current_vmid = vmid;
 			current_vmid_ref_count++;
 			spin_unlock(&vmid_lock);
@@ -595,10 +597,10 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 				isb();
 			}
 #endif
-			VERBOSE("%s: REE smc fid 0x%x conext switch to TEE\n", __func__, smc_fid);
+			VERBOSE("(%d) %s: REE smc fid 0x%x conext switch to TEE\n", cpu, __func__, smc_fid);
 			ret = trusty_context_switch(NON_SECURE, smc_fid, x1,
 				x2, x3);
-			VERBOSE("%s: REE smc fid 0x%x return from TEE smc fid 0x%lx\n", __func__,
+			VERBOSE("(%d) %s: REE smc fid 0x%x return from TEE smc fid 0x%lx\n", cpu, __func__,
 				smc_fid, ret.r0);
 
 #if ARM_GIC_ARCH == 3
@@ -612,7 +614,7 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 			spin_lock(&vmid_lock);
 			current_vmid_ref_count--;
 			if(current_vmid_ref_count == 0) {
-				current_vmid = 0;
+				current_vmid = MAX_VMID;
 			}
 			spin_unlock(&vmid_lock);
 
@@ -718,12 +720,13 @@ static void trusty_cpu_suspend(void)
 
 #if ENABLE_PAUTH
 	struct trusty_cpu_ctx *ctx = get_trusty_ctx();
+
 	ctx->suspend_apiakey[0] = read_apiakeylo_el1();
 	ctx->suspend_apiakey[1] = read_apiakeyhi_el1();
 #endif
 	ret = trusty_context_switch(NON_SECURE, SMC_FC_CPU_SUSPEND, 0, 0, 0);
 	if (ret.r0 != 0) {
-		INFO("%s: cpu %d, SMC_FC_CPU_SUSPEND returned unexpected value, %ld\n",
+		INFO("%s: cpu %u, SMC_FC_CPU_SUSPEND returned unexpected value, %ld\n",
 		     __func__, plat_my_core_pos(), (unsigned long)ret.r0);
 	}
 
@@ -749,6 +752,7 @@ static void trusty_cpu_resume(void)
 
 #if ENABLE_PAUTH
 	struct trusty_cpu_ctx *ctx = get_trusty_ctx();
+
 	ctx->resume_apiakey[0] = read_apiakeylo_el1();
 	ctx->resume_apiakey[1] = read_apiakeyhi_el1();
 #endif
@@ -758,7 +762,7 @@ static void trusty_cpu_resume(void)
 	isb();
 	ret = trusty_context_switch(NON_SECURE, SMC_FC_CPU_RESUME, 0, 0, 0);
 	if (ret.r0 != 0) {
-		INFO("%s: cpu %d, SMC_FC_CPU_RESUME returned unexpected value, %ld\n",
+		INFO("%s: cpu %u, SMC_FC_CPU_RESUME returned unexpected value, %ld\n",
 		     __func__, plat_my_core_pos(), (unsigned long)ret.r0);
 	}
 	write_cptr_el3(cptr_el3);
@@ -874,7 +878,6 @@ static int32_t trusty_setup(void)
 /* Define a SPD runtime service descriptor for fast SMC calls */
 DECLARE_RT_SVC(
 	trusty_fast,
-
 	OEN_TOS_START,
 	SMC_ENTITY_SECURE_MONITOR,
 	SMC_TYPE_FAST,
@@ -885,7 +888,6 @@ DECLARE_RT_SVC(
 /* Define a SPD runtime service descriptor for yielding SMC calls */
 DECLARE_RT_SVC(
 	trusty_std,
-
 	OEN_TAP_START,
 	SMC_ENTITY_SECURE_MONITOR,
 	SMC_TYPE_YIELD,
@@ -895,7 +897,6 @@ DECLARE_RT_SVC(
 
 DECLARE_RT_SVC(
     trusty_fast_plat,
-
     OEN_TOS_START,
     SMC_ENTITY_PLATFORM_MONITOR,
     SMC_TYPE_FAST,
@@ -905,7 +906,6 @@ DECLARE_RT_SVC(
 
 DECLARE_RT_SVC(
     trusty_fast_plat_vm,
-
     OEN_TOS_START,
     SMC_ENTITY_PLAT,
     SMC_TYPE_FAST,
