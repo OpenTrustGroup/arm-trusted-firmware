@@ -569,22 +569,24 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 			if (is_hypervisor_mode())
 				vmid = SMC_GET_GP(handle, CTX_GPREG_X7);
 
-			spin_lock(&vmid_lock);
-			if ((current_vmid != MAX_VMID) && (current_vmid != vmid)) {
-				/* This message will cause SMC mechanism
-				 * abnormal in multi-guest environment.
-				 * Change it to WARN in case you need it.
-				 */
-				VERBOSE("Previous SMC not finished.\n");
+			if (!IS_FASTCALL(smc_fid)) {
+				spin_lock(&vmid_lock);
+				if ((current_vmid != MAX_VMID) && (current_vmid != vmid)) {
+					/* This message will cause SMC mechanism
+					* abnormal in multi-guest environment.
+					* Change it to WARN in case you need it.
+					*/
+					VERBOSE("Previous SMC not finished.\n");
+					spin_unlock(&vmid_lock);
+					SMC_RET1(handle, SM_ERR_BUSY);
+				}
+
+				current_vmid = vmid;
+				current_vmid_ref_count++;
 				spin_unlock(&vmid_lock);
-				SMC_RET1(handle, SM_ERR_BUSY);
+
+				last_vmid[plat_my_core_pos()] = vmid;
 			}
-
-			current_vmid = vmid;
-			current_vmid_ref_count++;
-			spin_unlock(&vmid_lock);
-
-			last_vmid[plat_my_core_pos()] = vmid;
 
 #if ARM_GIC_ARCH == 3
 			/* Inject g1s pending interrupts */
@@ -611,12 +613,14 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 			}
 #endif
 
-			spin_lock(&vmid_lock);
-			current_vmid_ref_count--;
-			if(current_vmid_ref_count == 0) {
-				current_vmid = MAX_VMID;
+			if (!IS_FASTCALL(smc_fid)) {
+				spin_lock(&vmid_lock);
+				current_vmid_ref_count--;
+				if(current_vmid_ref_count == 0) {
+					current_vmid = MAX_VMID;
+				}
+				spin_unlock(&vmid_lock);
 			}
-			spin_unlock(&vmid_lock);
 
 			if (smc_fid == SMC_SC_VIRTIO_START)
 				virtio_has_probed = 1;
