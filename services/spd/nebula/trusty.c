@@ -37,7 +37,7 @@
 #define SMC_GET_GIC_BASE_GICC 1
 
 #define TWO_MB_SHIFT U(21)
-#define TWO_MB_MASK ((1U << TWO_MB_SHIFT) - 1)
+#define TWO_MB_MASK ((1UL << TWO_MB_SHIFT) - 1)
 
 #define IS_FASTCALL(x) (x & (1U << 31))
 #define ARM_GIC_ARCH  3

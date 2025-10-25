@@ -375,8 +375,7 @@ static void remove_na_node_from_tee(void *fdt)
 
 static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 {
-	fdt64_t value[2];
-	uint64_t base, size;
+	uint64_t base;
 	uint64_t offset, initrd_start, initrd_end;
 	bl_mem_params_node_t *bl_mem_params = get_bl_mem_params_node(image_id);
 
@@ -387,11 +386,7 @@ static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 		case BL33_IMAGE_ID:        /* HEE */
 		case BL33_EXTRA1_IMAGE_ID: /* REE */
 			base = qemu_fdt_get_prop(node[image_id], "reg", 0);
-			size = qemu_fdt_get_prop(node[image_id], "reg", 1);
-			value[0] = cpu_to_fdt64(base);
-			value[1] = cpu_to_fdt64(size);
 			qemu_fdt_copy((void*)(uintptr_t)base, (void*)(uintptr_t)PLAT_QEMU_DT_BASE);
-			qemu_fdt_set_prop((void*)(uintptr_t)base, "/memory", "reg", value, sizeof(value));
 			if (image_id == BL32_IMAGE_ID) {
 				qemu_fdt_add_subnode((void*)(uintptr_t)base, "/nebula");
 				qemu_fdt_add_subnode((void*)(uintptr_t)base, "/nebula/tee");
