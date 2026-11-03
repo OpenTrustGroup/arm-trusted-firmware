@@ -288,6 +288,14 @@ bool has_android_firmware(void)
 	offset = fdt_path_offset((void*)(uintptr_t)PLAT_QEMU_DT_BASE, "/firmware/android");
 	return offset >= 0;
 }
+
+static bool has_active_hyp(void)
+{
+	int offset;
+
+	offset = fdt_path_offset((void*)(uintptr_t)PLAT_QEMU_DT_BASE, "/active-hyp");
+	return offset >= 0;
+}
 #endif
 
 
@@ -377,6 +385,7 @@ static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 {
 	uint64_t base;
 	uint64_t offset, initrd_start, initrd_end;
+	void *ree_fdt;
 	bl_mem_params_node_t *bl_mem_params = get_bl_mem_params_node(image_id);
 
 	switch (image_id) {
@@ -396,20 +405,33 @@ static int nbl_bl2_handle_post_image_load(unsigned int image_id)
 			bl_mem_params->ep_info.args.arg0 = base;
 			break;
 		case BL33_EXTRA2_IMAGE_ID: /* REE Rootfs */
-			base = qemu_fdt_get_prop(node[image_id], "reg", 0);
-			if (has_android_firmware() == false) {
-				/* Using normal rootfs if REE or SOS is not Android system */
-				offset = qemu_fdt_get_prop(node[image_id], "offset", 0);
-				initrd_start = cpu_to_fdt64(base + offset);
-				initrd_end = cpu_to_fdt64(base + offset + bl_mem_params->image_info.image_size);
-				qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-start", &initrd_start, sizeof(initrd_start));
-				qemu_fdt_set_prop((void*)(uintptr_t)base, "/chosen", "linux,initrd-end", &initrd_end, sizeof(initrd_end));
-				INFO("REE or SOS is Linux rootfs system\n");
-			} else {
-				INFO("REE or SOS is Android System\n");
+			/*
+			 * The REE device tree is the copy made for BL33_EXTRA1 at
+			 * the base of ree1-region. The reg base of ree2-region is
+			 * where the rootfs is loaded, not a device tree.
+			 *
+			 * With an active hypervisor the HEE VMM boots the SOS from
+			 * that device tree and sets /memory and the initrd itself,
+			 * and it needs the reserved-memory nodes, so leave it as
+			 * QEMU made it.
+			 */
+			if (has_active_hyp() == false) {
+				ree_fdt = (void *)(uintptr_t)qemu_fdt_get_prop(node[BL33_EXTRA1_IMAGE_ID], "reg", 0);
+				base = qemu_fdt_get_prop(node[image_id], "reg", 0);
+				if (has_android_firmware() == false) {
+					/* Using normal rootfs if REE or SOS is not Android system */
+					offset = qemu_fdt_get_prop(node[image_id], "offset", 0);
+					initrd_start = cpu_to_fdt64(base + offset);
+					initrd_end = cpu_to_fdt64(base + offset + bl_mem_params->image_info.image_size);
+					qemu_fdt_set_prop(ree_fdt, "/chosen", "linux,initrd-start", &initrd_start, sizeof(initrd_start));
+					qemu_fdt_set_prop(ree_fdt, "/chosen", "linux,initrd-end", &initrd_end, sizeof(initrd_end));
+					INFO("REE or SOS is Linux rootfs system\n");
+				} else {
+					INFO("REE or SOS is Android System\n");
+				}
+				/* Remove all regions in ree device tree to avoid linux kernel complains. */
+				remove_na_node_from_ree(ree_fdt);
 			}
-			/* Remove all regions in ree device tree to avoid linux kernel complains. */
-			remove_na_node_from_ree((void*)(uintptr_t)base);
 			/* Remove unnecessary stuffs in hee device tree. */
 			remove_na_node_from_hee((void*)(uintptr_t)qemu_fdt_get_prop(node[BL33_IMAGE_ID], "reg", 0));
 			/* Remove unnecessary stuffs in tee device tree. */
